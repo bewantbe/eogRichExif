@@ -21,8 +21,6 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 		# need to track file changes in the EoG thumbview
 		self.thumbview = self.window.get_thumb_view()		
 
-		# the EogImage of the main window
-		self.curImage = None
 		# the EogImage selected in the thumbview
 		self.thumbImage = None
 
@@ -45,31 +43,19 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 				self.selection_changed_cb, self)
 		
 	def do_deactivate(self):
+		'''remove all the callbacks stored in dict self.cb_ids '''
 		print('The answer fell off my rooftop, woot')
+		
+		for S in self.cb_ids:
+			for W, id in self.cb_ids[S].items():
+				W.disconnect(id)
 
 	@staticmethod
 	def	selection_changed_cb(thumb, self):
-		print("dbg: in selection_changed_cb")
-		self.curImage = self.window.get_image()
+		print("--- dbg: in selection_changed_cb ---")
 		self.thumbImage = self.thumbview.get_first_selected_image()
 		Event = Gtk.get_current_event()
 		
-		if self.Debug:
-			print('\n\nfile changed ----------------------------------------')
-			print('Event: ',Event)
-			if Event != None:
-				print('Event type: ',Event.type)
-			self.showImages()
-
-		if Event != None and self.thumbImage == None:
-			# this happens when you use the toolbar next/previous buttons as 
-			# opposed to the arrow keys or clicking an icon in the thumb nav.
-			# seem to be able to safely just discard it and then the various
-			# new image selections work the same.
-			if self.Debug:
-				print('selection event received with no thumbImage.  discard!')
-			return False	
-
 		if self.thumbImage != None:		
 			if self.Debug:
 				print('loading thumb meta:',\
@@ -77,29 +63,8 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 		else:
 			if self.Debug:
 				print('no metadata to load!')
-				self.showImages()
 			return False
 
 		# return False to let any other callbacks execute as well
 		return False
 
-	def showImages(self):
-		'''debug function: dump the current images paths'''
-		print("dbg: in showImages")
-		
-		if self.curImage == None:
-			print('current: None')
-		else:
-			print('current: ',urlparse(self.curImage.get_uri_for_display()).path)
-		try:
-			print('win says: ',urlparse(self.window.get_image().get_uri_for_display()).path)
-		except:
-			print('win says:none')
-		if self.thumbImage == None:	
-			print('thumb: None')
-		else:
-			print('thumb: ',urlparse(self.thumbImage.get_uri_for_display()).path)
-		try:
-			print('thumb says: ',urlparse(self.thumbview.get_first_selected_image().get_uri_for_display()).path)
-		except:
-			print('none')
