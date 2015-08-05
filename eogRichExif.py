@@ -4,6 +4,7 @@ from gi.repository import GObject, Gtk, Eog
 from os.path import join, basename
 from urllib.parse import urlparse
 import pyexiv2
+import math
 
 class eogRichExif(GObject.Object, Eog.WindowActivatable):
 	# Override EogWindowActivatable's window property
@@ -28,6 +29,8 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 
 		# Python and GTK
 		# https://python-gtk-3-tutorial.readthedocs.org/en/latest/introduction.html
+		# http://www.pygtk.org/pygtk2tutorial/sec-Notebooks.html
+		# http://gnipsel.com/glade/
 		builder = Gtk.Builder()
 		builder.add_from_file(join(self.plugin_info.get_data_dir(),\
 								"eogRichExif.glade"))
@@ -78,22 +81,67 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 			self.metadata.read()
 		except:
 			self.metadata = None
-			print("Cannot read meatadata.")
+			print("Cannot read metadata.")
 			return
 
-		self.set_info()
+		try:
+			self.set_info()
+		except:
+			self.label_exif.set_markup("Metadata incomplete.")
 
 		# return False to let any other callbacks execute as well
 		return False
 
 	def set_info(self):
+
+		def is_integer(a):
+			if math.fabs(a-math.floor(a+0.5)) < 1e-5:
+				return True
+			else:
+				return False
 		self.metadata_keys = self.metadata.exif_keys + self.metadata.iptc_keys + \
 							self.metadata.xmp_keys
 
 		st_markup = '';
 		if 'Exif.Image.DateTime' in self.metadata:
 			time_iso = self.metadata['Exif.Image.DateTime'].value.strftime('%Y-%m-%d %H:%M:%S')
-			st_markup += '<b>Image.DateTime:</b>\n <tt>%s</tt>\n' % time_iso
+			st_markup += '<b>Image.DateTime:</b>\n<tt> %s</tt>\n' % time_iso
+
+		image_model = self.metadata['Exif.Image.Model'].value
+		st_markup += '<b>Camera:</b>\n %s\n' % image_model
+
+		# ExposureTime
+		exposure_time = self.metadata['Exif.Photo.ExposureTime'].value.__float__()
+		if exposure_time>1:
+			if is_integer(1.0/exposure_time):
+				st_exposure_time = '%.0f s' % exposure_time
+			else:
+				st_exposure_time = '%.1f s' % exposure_time
+		else:
+			if is_integer(1.0/exposure_time):
+				st_exposure_time = '1/%.0f s' % (1.0/exposure_time)
+			else:
+				st_exposure_time = '1/%.1f s' % (1.0/exposure_time)
+		# FNumber
+		f_number = self.metadata['Exif.Photo.FNumber'].human_value
+		
+		# ISO
+		iso = self.metadata['Exif.Photo.ISOSpeedRatings'].value
+		
+		st_markup += '<b>Exposure:</b>\n<tt> %s, %s, ISO%d</tt>\n' % \
+			(st_exposure_time, f_number, iso)
+		# extra ISO
+		if 'Exif.NikonIi.ISOExpansion' in self.metadata:
+			st_markup += 'ISOExpansion:<tt> %d</tt>\n' % \
+			    self.metadata['Exif.NikonIi.ISOExpansion'].value
+		
+		# Focal Length
+		st_focal_length = "%.1f mm" % self.metadata['Exif.Photo.FocalLength'].value.__float__()
+		st_focal_length_35mm = "%.1f mm (35mm film)" % self.metadata['Exif.Photo.FocalLengthIn35mmFilm'].value.__float__()
+		st_markup += '<tt> %s, %s</tt>\n' % (st_focal_length, st_focal_length_35mm)
+
+		# White Balance
+		wb = self.metadata['Exif.NikonIi.ISOExpansion'].human_value
 
 		previews = self.metadata.previews
 		print('Number of thumbnails: ', len(previews))
