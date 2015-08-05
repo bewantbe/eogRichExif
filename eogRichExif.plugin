@@ -1,0 +1,9 @@
+[Plugin]
+Loader=python3
+Module=eogRichExif
+IAge=2
+Name=eogRichExif
+Icon=postr
+Description=Show many information in Exif
+Authors=count <bewantbe@gmail.com>
+Copyright=GPL-v3
