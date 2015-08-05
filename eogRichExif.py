@@ -32,28 +32,7 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 		builder.add_from_file(join(self.plugin_info.get_data_dir(),\
 								"eogRichExif.glade"))
 		self.plugin_window = builder.get_object('eogRichExif')
-		self.win_label_time = builder.get_object('label_time')
-
-#		self.plugin_window = Gtk.ScrolledWindow()
-#		box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.VERTICAL)
-
-#		self.win_label_time = Gtk.Label(label="Date & Time")
-#		box.pack_start(self.win_label_time, True, True, 0)
-
-#		label2 = Gtk.Label(label="Camara")
-#		box.pack_start(label2, True, True, 0)
-#		
-#		self.plugin_window.add(box)
-
-#		self.win_label_time = Gtk.Label(label="Date & Time")
-#		self.plugin_window.add(self.win_label_time)
-
-		box = builder.get_object('box1')
-		label2 = Gtk.Label()
-		label2.set_text('asdfasdf')
-		box.remove(builder.get_object('label1'))
-#		box.add(label2)
-		box.pack_start(label2, True, True, 0)
+		self.label_exif = builder.get_object('label_exif')
 
 		# add dialog to the sidebar
 		Eog.Sidebar.add_page(self.sidebar, "Custom Metadata Show", self.plugin_window)
@@ -111,11 +90,14 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 		self.metadata_keys = self.metadata.exif_keys + self.metadata.iptc_keys + \
 							self.metadata.xmp_keys
 
+		st_markup = '';
 		if 'Exif.Image.DateTime' in self.metadata:
 			time_iso = self.metadata['Exif.Image.DateTime'].value.strftime('%Y-%m-%d %H:%M:%S')
-			print("Time: ", time_iso)
-			self.win_label_time.set_text("Time: %s" % time_iso)
+			st_markup += '<b>Image.DateTime:</b>\n <tt>%s</tt>\n' % time_iso
 
 		previews = self.metadata.previews
-		print("Number of thumbnails: ", len(previews))
+		print('Number of thumbnails: ', len(previews))
 
+		st_markup += '<b>Number of thumbnails:</b>\n <tt>%d</tt>\n' % len(previews)
+
+		self.label_exif.set_markup(st_markup)
