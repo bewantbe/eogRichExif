@@ -33,7 +33,28 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 								"eogRichExif.glade"))
 		self.plugin_window = builder.get_object('eogRichExif')
 		self.win_label_time = builder.get_object('label_time')
-		
+
+#		self.plugin_window = Gtk.ScrolledWindow()
+#		box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.VERTICAL)
+
+#		self.win_label_time = Gtk.Label(label="Date & Time")
+#		box.pack_start(self.win_label_time, True, True, 0)
+
+#		label2 = Gtk.Label(label="Camara")
+#		box.pack_start(label2, True, True, 0)
+#		
+#		self.plugin_window.add(box)
+
+#		self.win_label_time = Gtk.Label(label="Date & Time")
+#		self.plugin_window.add(self.win_label_time)
+
+		box = builder.get_object('box1')
+		label2 = Gtk.Label()
+		label2.set_text('asdfasdf')
+		box.remove(builder.get_object('label1'))
+#		box.add(label2)
+		box.pack_start(label2, True, True, 0)
+
 		# add dialog to the sidebar
 		Eog.Sidebar.add_page(self.sidebar, "Custom Metadata Show", self.plugin_window)
 
