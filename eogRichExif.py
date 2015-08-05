@@ -1,6 +1,7 @@
 # thanks to author(s) of eogMetaEdit plugin
 
 from gi.repository import GObject, Gtk, Eog
+from os.path import join, basename
 from urllib.parse import urlparse
 import pyexiv2
 
@@ -22,16 +23,20 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 		self.thumbview = self.window.get_thumb_view()		
 		# the EogImage selected in the thumbview
 		self.thumbImage = None
-
-#		builder = Gtk.Builder()
-#		builder.add_from_file(join(self.plugin_info.get_data_dir(),\
-#								"eogRichExif.glade"))
-#		pluginDialog = builder.get_object('eogRichExif')
-#		
-#		# add dialog to the sidebar
-#		Eog.Sidebar.add_page(self.sidebar,"Custom Metadata Show", pluginDialog)
-
 		self.cb_ids = {}
+		self.plugin_window = None
+
+		# Python and GTK
+		# https://python-gtk-3-tutorial.readthedocs.org/en/latest/introduction.html
+		builder = Gtk.Builder()
+		builder.add_from_file(join(self.plugin_info.get_data_dir(),\
+								"eogRichExif.glade"))
+		self.plugin_window = builder.get_object('eogRichExif')
+		self.win_label_time = builder.get_object('label_time')
+		
+		# add dialog to the sidebar
+		Eog.Sidebar.add_page(self.sidebar, "Custom Metadata Show", self.plugin_window)
+
 		self.cb_ids['selection-changed'] = {}
 		self.cb_ids['selection-changed'][self.thumbview] = \
 			self.thumbview.connect('selection-changed', \
@@ -45,14 +50,16 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 			for W, id in self.cb_ids[S].items():
 				W.disconnect(id)
 
+	# Load metadata
 	@staticmethod
 	def	selection_changed_cb(thumb, self):
 		print("--- dbg: in selection_changed_cb ---")
+
+		# Get file path
 		self.thumbImage = self.thumbview.get_first_selected_image()
 		Event = Gtk.get_current_event()
 		filePath = None
 		fileURL = None
-		
 		if self.thumbImage != None:		
 			if self.Debug:
 				fileURL = self.thumbImage.get_uri_for_display()
@@ -64,6 +71,7 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 				print('no metadata to load!')
 			return False
 
+		# Read metadata
 		# http://python3-exiv2.readthedocs.org/en/latest/tutorial.html
 		self.metadata = pyexiv2.ImageMetadata(filePath)
 		try:
@@ -73,15 +81,20 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 			print("Cannot read meatadata.")
 			return
 
+		self.set_info()
+
+		# return False to let any other callbacks execute as well
+		return False
+
+	def set_info(self):
 		self.metadata_keys = self.metadata.exif_keys + self.metadata.iptc_keys + \
 							self.metadata.xmp_keys
 
 		if 'Exif.Image.DateTime' in self.metadata:
-			print("Time: ", self.metadata['Exif.Image.DateTime'].value.strftime('%Y-%m-%d %H:%M:%S'));
+			time_iso = self.metadata['Exif.Image.DateTime'].value.strftime('%Y-%m-%d %H:%M:%S')
+			print("Time: ", time_iso)
+			self.win_label_time.set_text("Time: %s" % time_iso)
 
 		previews = self.metadata.previews
 		print("Number of thumbnails: ", len(previews))
-
-		# return False to let any other callbacks execute as well
-		return False
 
