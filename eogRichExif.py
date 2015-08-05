@@ -6,18 +6,21 @@ from urllib.parse import urlparse
 import pyexiv2
 import math
 
+
 class eogRichExif(GObject.Object, Eog.WindowActivatable):
 	# Override EogWindowActivatable's window property
 	# This is the EogWindow this plugin instance has been activated for
 	window = GObject.property(type=Eog.Window)
-	Debug = True
+	Debug = False
 
 	def __init__(self):
 #		will be execulted when activating
 		GObject.Object.__init__(self)
 
 	def do_activate(self):
-		print('The answer landed on my rooftop, whoa')
+		if self.Debug:
+			print('The answer landed on my rooftop, whoa')
+		
 		# get sidebar
 		self.sidebar = self.window.get_sidebar()
 		# need to track file changes in the EoG thumbview (any better idea?)
@@ -47,7 +50,8 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 		
 	def do_deactivate(self):
 		'''remove all the callbacks stored in dict self.cb_ids '''
-		print('The answer fell off my rooftop, woot')
+		if self.Debug:
+			print('The answer fell off my rooftop, woot')
 		
 		for S in self.cb_ids:
 			for W, id in self.cb_ids[S].items():
@@ -56,7 +60,8 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 	# Load metadata
 	@staticmethod
 	def	selection_changed_cb(thumb, self):
-		print("--- dbg: in selection_changed_cb ---")
+		if self.Debug:
+			print("--- dbg: in selection_changed_cb ---")
 
 		# Get file path
 		self.thumbImage = self.thumbview.get_first_selected_image()
@@ -64,10 +69,10 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 		filePath = None
 		fileURL = None
 		if self.thumbImage != None:		
+			fileURL = self.thumbImage.get_uri_for_display()
+			# https://docs.python.org/2/library/urlparse.html
+			filePath = urlparse(fileURL).path
 			if self.Debug:
-				fileURL = self.thumbImage.get_uri_for_display()
-				# https://docs.python.org/2/library/urlparse.html
-				filePath = urlparse(fileURL).path
 				print('loading thumb meta: \n  ', filePath, '\n  URL: ', fileURL)
 		else:
 			if self.Debug:
@@ -84,6 +89,7 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 			print("Cannot read metadata.")
 			return
 
+#		self.set_info()
 		try:
 			self.set_info()
 		except:
@@ -111,29 +117,19 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 		st_markup += '<b>Camera:</b>\n %s\n' % image_model
 
 		# ExposureTime
-		exposure_time = self.metadata['Exif.Photo.ExposureTime'].value.__float__()
-		if exposure_time>1:
-			if is_integer(1.0/exposure_time):
-				st_exposure_time = '%.0f s' % exposure_time
-			else:
-				st_exposure_time = '%.1f s' % exposure_time
-		else:
-			if is_integer(1.0/exposure_time):
-				st_exposure_time = '1/%.0f s' % (1.0/exposure_time)
-			else:
-				st_exposure_time = '1/%.1f s' % (1.0/exposure_time)
+		st_exposure_time = self.metadata['Exif.Photo.ExposureTime'].human_value
 		# FNumber
 		f_number = self.metadata['Exif.Photo.FNumber'].human_value
-		
 		# ISO
 		iso = self.metadata['Exif.Photo.ISOSpeedRatings'].value
 		
-		st_markup += '<b>Exposure:</b>\n<tt> %s, %s, ISO%d</tt>\n' % \
+		st_markup += '<b>Exposure:</b>\n<tt> %s, %s, ISO %d</tt>\n' % \
 			(st_exposure_time, f_number, iso)
+
 		# extra ISO
 		if 'Exif.NikonIi.ISOExpansion' in self.metadata:
-			st_markup += 'ISOExpansion:<tt> %d</tt>\n' % \
-			    self.metadata['Exif.NikonIi.ISOExpansion'].value
+			st_markup += 'ISOExpansion:<tt> %s</tt>\n' % \
+			    self.metadata['Exif.NikonIi.ISOExpansion'].human_value
 		
 		# Focal Length
 		st_focal_length = "%.1f mm" % self.metadata['Exif.Photo.FocalLength'].value.__float__()
@@ -141,10 +137,53 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 		st_markup += '<tt> %s, %s</tt>\n' % (st_focal_length, st_focal_length_35mm)
 
 		# White Balance
-		wb = self.metadata['Exif.NikonIi.ISOExpansion'].human_value
+		wb = self.metadata['Exif.Photo.WhiteBalance'].human_value
+		st_markup += '<b>WhiteBalance:</b>\n %s\n' % wb
+		if 'Exif.Nikon3.WhiteBalance' in self.metadata:
+			wb_extra = self.metadata['Exif.Nikon3.WhiteBalance'].human_value.strip()
+			wb_extra += ', Bias: ' + self.metadata['Exif.Nikon3.WhiteBalanceBias'].human_value
+			st_markup += 'Nikon:\n %s\n' % wb_extra
+
+		if 'Exif.Nikon3.Focus' in self.metadata:
+			st_markup += '<b>Focus Mode:</b>\n'
+			st_markup += ' %s\n' % self.metadata['Exif.Nikon3.Focus'].human_value.strip()
+			st_markup += ' ContrastDetectAF: %s\n' % self.metadata['Exif.NikonAf2.ContrastDetectAF'].human_value
+			st_markup += ' PhaseDetectAF: %s\n' % self.metadata['Exif.NikonAf2.PhaseDetectAF'].human_value
+
+		st_markup += '<b>Extra settings:</b>\n'
+		if 'Exif.Nikon3.ActiveDLighting' in self.metadata:
+			st_markup += ' DLighting: %s\n' % self.metadata['Exif.Nikon3.ActiveDLighting'].human_value
+		if 'Exif.NikonVr.VibrationReduction' in self.metadata:
+			st_markup += ' Vibration Reduction: %s\n' % self.metadata['Exif.NikonVr.VibrationReduction'].human_value
+		if 'Exif.Nikon3.NoiseReduction' in self.metadata:
+			st_markup += ' Noise Reduction: %s\n' % self.metadata['Exif.Nikon3.NoiseReduction'].human_value
+		if 'Exif.Nikon3.HighISONoiseReduction' in self.metadata:
+			st_markup += ' High ISO Noise Reduction: %s\n' % self.metadata['Exif.Nikon3.HighISONoiseReduction'].human_value
+		if 'Exif.Photo.ExposureBiasValue' in self.metadata:
+			st_markup += ' Exposure Bias Value: %s\n' % self.metadata['Exif.Photo.ExposureBiasValue'].human_value
+		if 'Exif.Photo.MeteringMode' in self.metadata:
+			st_markup += ' Metering Mode: %s\n' % self.metadata['Exif.Photo.MeteringMode'].human_value
+		if 'Exif.Photo.ExposureProgram' in self.metadata:
+			st_markup += ' Exposure Program: %s\n' % self.metadata['Exif.Photo.ExposureProgram'].human_value
+		if 'Exif.Nikon3.ShootingMode' in self.metadata:
+			st_markup += ' Shooting Mode: %s\n' % self.metadata['Exif.Nikon3.ShootingMode'].human_value
+		if 'Exif.Photo.SceneCaptureType' in self.metadata:
+			st_markup += ' Scene Capture Type: %s\n' % self.metadata['Exif.Photo.SceneCaptureType'].human_value
+
+
+		st_markup += '<b>Lens:</b>\n'
+		if 'Exif.NikonLd3.FocalLength' in self.metadata:
+			st_markup += ' Focal Length: %s\n' % self.metadata['Exif.NikonLd3.FocalLength'].human_value
+		if 'Exif.NikonLd3.AFAperture' in self.metadata:
+			st_markup += ' AFAperture: %s\n' % self.metadata['Exif.NikonLd3.AFAperture'].human_value
+		if 'Exif.NikonLd3.FocusDistance' in self.metadata:
+			st_markup += ' Focus Distance: %s\n' % self.metadata['Exif.NikonLd3.FocusDistance'].human_value
+
+		st_markup += '<b>Hardware:</b>\n'
+		if 'Exif.Nikon3.Lens' in self.metadata:
+			st_markup += ' Lens: %s\n' % self.metadata['Exif.Nikon3.Lens'].human_value
 
 		previews = self.metadata.previews
-		print('Number of thumbnails: ', len(previews))
 
 		st_markup += '<b>Number of thumbnails:</b>\n <tt>%d</tt>\n' % len(previews)
 
