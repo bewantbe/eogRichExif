@@ -121,15 +121,27 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 		# FNumber
 		f_number = self.metadata['Exif.Photo.FNumber'].human_value
 		# ISO
-		iso = self.metadata['Exif.Photo.ISOSpeedRatings'].value
+		st_markup += '<b>Exposure:</b>\n'
+		iso = ''
+		if 'Exif.Photo.ISOSpeedRatings' in self.metadata:
+			iso = self.metadata['Exif.Photo.ISOSpeedRatings'].human_value
+		else:
+			if 'Exif.Nikon3.ISOSettings' in self.metadata:
+				iso = self.metadata['Exif.Nikon3.ISOSettings'].human_value
+			if 'Exif.NikonIi.ISO' in self.metadata:
+				iso = self.metadata['Exif.NikonIi.ISO'].human_value
 		
-		st_markup += '<b>Exposure:</b>\n<tt> %s, %s, ISO %d</tt>\n' % \
-			(st_exposure_time, f_number, iso)
-
 		# extra ISO
 		if 'Exif.NikonIi.ISOExpansion' in self.metadata:
-			st_markup += 'ISOExpansion:<tt> %s</tt>\n' % \
-			    self.metadata['Exif.NikonIi.ISOExpansion'].human_value
+		    iso_ext = self.metadata['Exif.NikonIi.ISOExpansion'].human_value
+		    if 'off' in iso_ext.lower():
+		    	iso += '' # do nothing
+		    else:
+		    	iso += '(%s)' % iso_ext
+
+		st_markup += '<tt> %s, %s, ISO %s</tt>\n' % \
+			(st_exposure_time, f_number, iso)
+
 		
 		# Focal Length
 		st_focal_length = "%.1f mm" % self.metadata['Exif.Photo.FocalLength'].value.__float__()
@@ -137,20 +149,35 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 		st_markup += '<tt> %s, %s</tt>\n' % (st_focal_length, st_focal_length_35mm)
 
 		# White Balance
+		st_markup += '<b>WhiteBalance:</b>\n'
 		wb = self.metadata['Exif.Photo.WhiteBalance'].human_value
-		st_markup += '<b>WhiteBalance:</b>\n %s\n' % wb
-		if 'Exif.Nikon3.WhiteBalance' in self.metadata:
+		if (wb.lower() == 'auto') and ('Exif.Nikon3.WhiteBalance' in self.metadata):
 			wb_extra = self.metadata['Exif.Nikon3.WhiteBalance'].human_value.strip()
-			wb_extra += ', Bias: ' + self.metadata['Exif.Nikon3.WhiteBalanceBias'].human_value
-			st_markup += 'Nikon:\n %s\n' % wb_extra
+			v = self.metadata['Exif.Nikon3.WhiteBalanceBias'].value
+			wb_extra += ', Bias: R% d, B% d' % (v[0], v[1])
+			st_markup += ' %s\n' % wb_extra
+		else:
+			st_markup += ' %s\n' % wb
 
 		if 'Exif.Nikon3.Focus' in self.metadata:
 			st_markup += '<b>Focus Mode:</b>\n'
-			st_markup += ' %s\n' % self.metadata['Exif.Nikon3.Focus'].human_value.strip()
-			st_markup += ' ContrastDetectAF: %s\n' % self.metadata['Exif.NikonAf2.ContrastDetectAF'].human_value
-			st_markup += ' PhaseDetectAF: %s\n' % self.metadata['Exif.NikonAf2.PhaseDetectAF'].human_value
+			st_markup += ' %s\n' % self.metadata['Exif.Nikon3.Focus'].value.strip()
+			st_cdaf = self.metadata['Exif.NikonAf2.ContrastDetectAF'].human_value
+			if 'on' in st_cdaf.lower():
+				st_markup += ' ContrastDetectAF: %s\n' % st_cdaf
+			st_pdaf = self.metadata['Exif.NikonAf2.PhaseDetectAF'].human_value
+			if 'on' in st_pdaf.lower():
+				st_markup += ' PhaseDetectAF: %s\n' % st_pdaf
 
 		st_markup += '<b>Extra settings:</b>\n'
+		if 'Exif.Photo.ExposureBiasValue' in self.metadata:
+			st_markup += ' Exposure Bias Value: %s\n' % self.metadata['Exif.Photo.ExposureBiasValue'].human_value
+		if 'Exif.Photo.ExposureProgram' in self.metadata:
+			st_markup += ' Exposure Program: %s\n' % self.metadata['Exif.Photo.ExposureProgram'].human_value
+		if 'Exif.Photo.MeteringMode' in self.metadata:
+			st_markup += ' Metering Mode: %s\n' % self.metadata['Exif.Photo.MeteringMode'].human_value
+		if 'Exif.Photo.SceneCaptureType' in self.metadata:
+			st_markup += ' Scene Capture Type: %s\n' % self.metadata['Exif.Photo.SceneCaptureType'].human_value
 		if 'Exif.Nikon3.ActiveDLighting' in self.metadata:
 			st_markup += ' DLighting: %s\n' % self.metadata['Exif.Nikon3.ActiveDLighting'].human_value
 		if 'Exif.NikonVr.VibrationReduction' in self.metadata:
@@ -159,16 +186,8 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 			st_markup += ' Noise Reduction: %s\n' % self.metadata['Exif.Nikon3.NoiseReduction'].human_value
 		if 'Exif.Nikon3.HighISONoiseReduction' in self.metadata:
 			st_markup += ' High ISO Noise Reduction: %s\n' % self.metadata['Exif.Nikon3.HighISONoiseReduction'].human_value
-		if 'Exif.Photo.ExposureBiasValue' in self.metadata:
-			st_markup += ' Exposure Bias Value: %s\n' % self.metadata['Exif.Photo.ExposureBiasValue'].human_value
-		if 'Exif.Photo.MeteringMode' in self.metadata:
-			st_markup += ' Metering Mode: %s\n' % self.metadata['Exif.Photo.MeteringMode'].human_value
-		if 'Exif.Photo.ExposureProgram' in self.metadata:
-			st_markup += ' Exposure Program: %s\n' % self.metadata['Exif.Photo.ExposureProgram'].human_value
 		if 'Exif.Nikon3.ShootingMode' in self.metadata:
 			st_markup += ' Shooting Mode: %s\n' % self.metadata['Exif.Nikon3.ShootingMode'].human_value
-		if 'Exif.Photo.SceneCaptureType' in self.metadata:
-			st_markup += ' Scene Capture Type: %s\n' % self.metadata['Exif.Photo.SceneCaptureType'].human_value
 
 
 		st_markup += '<b>Lens:</b>\n'
