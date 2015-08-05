@@ -18,12 +18,10 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 		print('The answer landed on my rooftop, whoa')
 		# get sidebar
 		self.sidebar = self.window.get_sidebar()
-		# need to track file changes in the EoG thumbview
+		# need to track file changes in the EoG thumbview (any better idea?)
 		self.thumbview = self.window.get_thumb_view()		
-
 		# the EogImage selected in the thumbview
 		self.thumbImage = None
-
 
 #		builder = Gtk.Builder()
 #		builder.add_from_file(join(self.plugin_info.get_data_dir(),\
@@ -32,9 +30,6 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 #		
 #		# add dialog to the sidebar
 #		Eog.Sidebar.add_page(self.sidebar,"Custom Metadata Show", pluginDialog)
-
-#		self.metadata = pyexiv2.ImageMetadata(filePath)
-#		self.metadata.read()
 
 		self.cb_ids = {}
 		self.cb_ids['selection-changed'] = {}
@@ -55,15 +50,37 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 		print("--- dbg: in selection_changed_cb ---")
 		self.thumbImage = self.thumbview.get_first_selected_image()
 		Event = Gtk.get_current_event()
+		filePath = None
+		fileURL = None
 		
 		if self.thumbImage != None:		
 			if self.Debug:
-				print('loading thumb meta:',\
-					urlparse(self.thumbImage.get_uri_for_display()).path)
+				fileURL = self.thumbImage.get_uri_for_display()
+				# https://docs.python.org/2/library/urlparse.html
+				filePath = urlparse(fileURL).path
+				print('loading thumb meta: \n  ', filePath, '\n  URL: ', fileURL)
 		else:
 			if self.Debug:
 				print('no metadata to load!')
 			return False
+
+		# http://python3-exiv2.readthedocs.org/en/latest/tutorial.html
+		self.metadata = pyexiv2.ImageMetadata(filePath)
+		try:
+			self.metadata.read()
+		except:
+			self.metadata = None
+			print("Cannot read meatadata.")
+			return
+
+		self.metadata_keys = self.metadata.exif_keys + self.metadata.iptc_keys + \
+							self.metadata.xmp_keys
+
+		if 'Exif.Image.DateTime' in self.metadata:
+			print("Time: ", self.metadata['Exif.Image.DateTime'].value.strftime('%Y-%m-%d %H:%M:%S'));
+
+		previews = self.metadata.previews
+		print("Number of thumbnails: ", len(previews))
 
 		# return False to let any other callbacks execute as well
 		return False
