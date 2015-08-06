@@ -1,4 +1,25 @@
-# thanks to author(s) of eogMetaEdit plugin
+'''
+  eogRichExif
+
+  A eog (Eye of GNOME Image Viewer) plugin which shows many Exif info in side pane.
+
+  Thanks to the eogMetaEdit plugin.
+'''
+
+'''
+  eogRichExif is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  eogRichExif is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with eogRichExif.  If not, see <http://www.gnu.org/licenses/>.
+'''
 
 from gi.repository import GObject, Gtk, Eog
 from os.path import join, basename
