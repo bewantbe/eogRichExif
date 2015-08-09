@@ -111,11 +111,13 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 			self.label_exif.set_markup("Cannot read metadata.\n filePath=%s" % filePath)
 			return
 
-		self.set_info()
-#		try:
-#			self.set_info()
-#		except KeyError as e:
-#			self.label_exif.set_markup("Metadata incomplete?\n  Error: {0}\n".format(e))
+		if self.Debug:
+			self.set_info()
+		else:
+			try:
+				self.set_info()
+			except KeyError as e:
+				self.label_exif.set_markup("Metadata incomplete?\n  Error: {0}\n".format(e))
 
 		# return False to let any other callbacks execute as well
 		return False
@@ -129,15 +131,16 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 				return False
 
 		st_markup = '';
+
+		image_model = xml.sax.saxutils.escape(self.metadata['Exif.Image.Model'].value)
+		st_markup += '<b>Camera:</b>\n %s\n' % image_model
+
 		if 'Exif.Image.DateTime' in self.metadata:
 			if self.metadata['Exif.Image.DateTime'].value != '0000:00:00 00:00:00':
 				time_iso = self.metadata['Exif.Image.DateTime'].value.strftime('%Y-%m-%d %H:%M:%S')
 			else:
 				time_iso = ''
 			st_markup += '<b>Image.DateTime:</b>\n<tt> %s</tt>\n' % time_iso
-
-		image_model = xml.sax.saxutils.escape(self.metadata['Exif.Image.Model'].value)
-		st_markup += '<b>Camera:</b>\n %s\n' % image_model
 
 		# ExposureTime
 		if 'Exif.Photo.ExposureTime' in self.metadata:
@@ -164,11 +167,11 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 		
 		# extra ISO
 		if 'Exif.NikonIi.ISOExpansion' in self.metadata:
-		    iso_ext = self.metadata['Exif.NikonIi.ISOExpansion'].human_value
-		    if 'off' in iso_ext.lower():
-		    	iso += '' # do nothing
-		    else:
-		    	iso += '(%s)' % iso_ext
+			iso_ext = self.metadata['Exif.NikonIi.ISOExpansion'].human_value
+			if 'off' in iso_ext.lower():
+				iso += '' # do nothing
+			else:
+				iso += '(%s)' % iso_ext
 
 		st_markup += '<tt> %s, %s, ISO %s</tt>\n' % \
 			(st_exposure_time, f_number, iso)
@@ -289,7 +292,7 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 				(float(lv[0]), float(lv[1]), float(lv[2]), lr, \
 				 float(av[0]), float(av[1]), float(av[2]), ar)
 			st_markup += ' %s %s.\n' % (self.metadata['Exif.GPSInfo.GPSAltitude'].human_value,\
-			    self.metadata['Exif.GPSInfo.GPSAltitudeRef'].human_value)
+				self.metadata['Exif.GPSInfo.GPSAltitudeRef'].human_value)
 
 		previews = self.metadata.previews
 
