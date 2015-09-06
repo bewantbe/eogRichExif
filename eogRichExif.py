@@ -88,14 +88,14 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 		# Get file path
 		self.thumbImage = self.thumbview.get_first_selected_image()
 		Event = Gtk.get_current_event()
-		filePath = None
-		fileURL = None
+		self.filePath = None
+		self.fileURL = None
 		if self.thumbImage != None:		
-			fileURL = self.thumbImage.get_uri_for_display()
+			self.fileURL = self.thumbImage.get_uri_for_display()
 			# https://docs.python.org/2/library/urlparse.html
-			filePath = urlparse(fileURL).path
+			self.filePath = urlparse(self.fileURL).path
 			if self.Debug:
-				print('loading thumb meta: \n  ', filePath, '\n  URL: ', fileURL)
+				print('loading thumb meta: \n  ', self.filePath, '\n  URL: ', self.fileURL)
 		else:
 			if self.Debug:
 				print('Fail to load metadata!')
@@ -103,12 +103,12 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 
 		# Read metadata
 		# http://python3-exiv2.readthedocs.org/en/latest/tutorial.html
-		self.metadata = pyexiv2.ImageMetadata(filePath)
+		self.metadata = pyexiv2.ImageMetadata(self.filePath)
 		try:
 			self.metadata.read()
 		except:
 			self.metadata = None
-			self.label_exif.set_markup("Cannot read metadata.\n filePath=%s" % filePath)
+			self.label_exif.set_markup("Cannot read metadata.\n self.filePath=%s" % self.filePath)
 			return
 
 		if self.Debug:
@@ -130,7 +130,7 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 			else:
 				return False
 
-		st_markup = '';
+		st_markup = '%s\n' % self.filePath;
 
 		image_model = xml.sax.saxutils.escape(self.metadata['Exif.Image.Model'].value)
 		st_markup += '<b>Camera:</b>\n %s\n' % image_model
