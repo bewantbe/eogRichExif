@@ -111,13 +111,10 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 			self.label_exif.set_markup("Cannot read metadata.\n self.filePath=%s" % self.filePath)
 			return
 
-		if self.Debug:
-			self.set_info()
-		else:
-			try:
-				self.set_info()
-			except KeyError as e:
-				self.label_exif.set_markup("Metadata incomplete?\n  Error: {0}\n".format(e))
+#		try:
+		self.set_info()
+#		except KeyError as e:
+#			self.label_exif.set_markup("Metadata incomplete?\n  Error: {0}\n".format(e))
 
 		# return False to let any other callbacks execute as well
 		return False
@@ -132,15 +129,34 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 
 		st_markup = '%s\n' % self.filePath;
 
-		image_model = xml.sax.saxutils.escape(self.metadata['Exif.Image.Model'].value)
-		st_markup += '<b>Camera:</b>\n %s\n' % image_model
+		if 'Exif.Image.Model' in self.metadata:
+			image_make = ''
+			if 'Exif.Image.Make' in self.metadata:
+				image_make = xml.sax.saxutils.escape(self.metadata['Exif.Image.Make'].value) + '\n '
+			image_model = xml.sax.saxutils.escape(self.metadata['Exif.Image.Model'].value)
+			st_markup += '<b>Camera:</b>\n %s%s\n' % (image_make, image_model)
 
-		if 'Exif.Image.DateTime' in self.metadata:
-			if self.metadata['Exif.Image.DateTime'].value != '0000:00:00 00:00:00':
-				time_iso = self.metadata['Exif.Image.DateTime'].value.strftime('%Y-%m-%d %H:%M:%S')
-			else:
-				time_iso = ''
-			st_markup += '<b>Image.DateTime:</b>\n<tt> %s</tt>\n' % time_iso
+		# Time
+		s_time_tag = [
+		['0000:00:00 00:00:00', 'Exif.Image.DateTime',          'DateTime'],
+		['0000:00:00 00:00:00', 'Exif.Image.DateTimeOriginal',  'DateTimeOriginal'],
+		['0000:00:00 00:00:00', 'Exif.Photo.DateTimeOriginal',  'DateTimeOriginal'],
+		['0000:00:00 00:00:00', 'Exif.Image.DateTimeDigitized', 'DateTimeDigitized'],
+		['0000:00:00 00:00:00', 'Exif.Photo.DateTimeDigitized', 'DateTimeDigitized']]
+		for idx, ttag in enumerate(s_time_tag):
+			if ttag[1] in self.metadata:
+				s_time_tag[idx][0] = self.metadata[ttag[1]].value
+
+		# remove nonsence data
+		s_time_tag = list(filter(lambda x: x[0]!='0000:00:00 00:00:00', s_time_tag))
+
+		if len(set([r[0] for r in s_time_tag])) > 1:  # time are different
+			for ttag in s_time_tag:
+				st_markup += '<b>%s:</b>\n<tt> %s</tt>\n' % (ttag[2], ttag[0].strftime('%Y-%m-%d %H:%M:%S'))
+		elif len(s_time_tag) == 0:
+			st_markup += '<b>DateTime:</b>\n<tt> ??</tt>\n'
+		else: # unique time
+			st_markup += '<b>DateTime:</b>\n<tt> %s</tt>\n' % (s_time_tag[0][0].strftime('%Y-%m-%d %H:%M:%S'))
 
 		# ExposureTime
 		if 'Exif.Photo.ExposureTime' in self.metadata:
@@ -155,7 +171,6 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 		else:
 			f_number = 'F??'
 		# ISO
-		st_markup += '<b>Exposure:</b>\n'
 		iso = ''
 		if 'Exif.Photo.ISOSpeedRatings' in self.metadata:
 			iso = self.metadata['Exif.Photo.ISOSpeedRatings'].human_value
@@ -173,10 +188,11 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 			else:
 				iso += '(%s)' % iso_ext
 
-		st_markup += '<tt> %s, %s, ISO %s</tt>\n' % \
-			(st_exposure_time, f_number, iso)
+		st_markup += '<b>Exposure:</b>\n'
+		st_markup += '<tt> %s, %s</tt>\n' % (st_exposure_time, f_number)
+		st_markup += '<tt> ISO %s</tt>\n' % (iso)
 
-		
+
 		# Focal Length
 		if 'Exif.Photo.FocalLength' in self.metadata:
 			st_focal_length = "%.1f mm" % self.metadata['Exif.Photo.FocalLength'].value.__float__()
@@ -186,7 +202,12 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 			st_focal_length_35mm = "%.1f mm (35mm film)" % self.metadata['Exif.Photo.FocalLengthIn35mmFilm'].value.__float__()
 		else:
 			st_focal_length_35mm = '?? mm (35mm film)'
-		st_markup += '<tt> %s, %s</tt>\n' % (st_focal_length, st_focal_length_35mm)
+		st_markup += '<tt> %s</tt>\n' % (st_focal_length)
+		st_markup += '<tt> %s</tt>\n' % (st_focal_length_35mm)
+
+		if 'Exif.Photo.Flash' in self.metadata:
+			st_markup += '<b>Flash:</b>\n'
+			st_markup += ' %s\n' % self.metadata['Exif.Photo.Flash'].human_value
 
 		# White Balance
 		st_markup += '<b>WhiteBalance:</b>\n'
@@ -213,17 +234,18 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 				wb = ''
 			st_markup += ' %s\n' % wb
 
+		# Focus Mode
 		if 'Exif.Nikon3.Focus' in self.metadata:
 			st_markup += '<b>Focus Mode:</b>\n'
 			st_markup += ' %s\n' % self.metadata['Exif.Nikon3.Focus'].value.strip()
 			if 'Exif.NikonAf2.ContrastDetectAF' in self.metadata:
 				st_cdaf = self.metadata['Exif.NikonAf2.ContrastDetectAF'].human_value
 				if 'on' in st_cdaf.lower():
-					st_markup += ' ContrastDetectAF: %s\n' % st_cdaf
+					st_markup += ' ContrastDetectAF:\n   %s\n' % st_cdaf
 			if 'Exif.NikonAf2.PhaseDetectAF' in self.metadata:
 				st_pdaf = self.metadata['Exif.NikonAf2.PhaseDetectAF'].human_value
 				if 'on' in st_pdaf.lower():
-					st_markup += ' PhaseDetectAF: %s\n' % st_pdaf
+					st_markup += ' PhaseDetectAF:\n   %s\n' % st_pdaf
 
 		if 'Exif.Sony1.FocusMode' in self.metadata:
 			st_markup += '<b>Focus Mode:</b>\n'
@@ -236,59 +258,54 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 			st_markup += ' FocusType: %s\n' % self.metadata['Exif.CanonCs.FocusType'].human_value.strip()
 
 		st_markup += '<b>Extra settings:</b>\n'
-		if 'Exif.Photo.ExposureBiasValue' in self.metadata:
-			st_markup += ' Exposure Bias Value: %s\n' % self.metadata['Exif.Photo.ExposureBiasValue'].human_value
-		if 'Exif.Photo.ExposureProgram' in self.metadata:
-			st_markup += ' Exposure Program: %s\n' % self.metadata['Exif.Photo.ExposureProgram'].human_value
-		if 'Exif.Photo.MeteringMode' in self.metadata:
-			st_markup += ' Metering Mode:\n  %s\n' % self.metadata['Exif.Photo.MeteringMode'].human_value
-		if 'Exif.Photo.SceneCaptureType' in self.metadata:
-			st_markup += ' Scene Capture Type:\n  %s\n' % self.metadata['Exif.Photo.SceneCaptureType'].human_value
-
+		s_tag_name_extra = [
+		('Exif.Photo.ExposureBiasValue', 'Exposure Bias Value'),
+		('Exif.Photo.ExposureProgram',   'Exposure Program'),
+		('Exif.Photo.MeteringMode',      'Metering Mode'),
+		('Exif.Photo.SceneCaptureType',  'Scene Capture Type'),
+		('Exif.Photo.ColorSpace',        'Color Space'),
 		# Nikon
-		if 'Exif.Nikon3.ActiveDLighting' in self.metadata:
-			st_markup += ' DLighting: %s\n' % self.metadata['Exif.Nikon3.ActiveDLighting'].human_value
-		if 'Exif.NikonVr.VibrationReduction' in self.metadata:
-			st_markup += ' Vibration Reduction: %s\n' % self.metadata['Exif.NikonVr.VibrationReduction'].human_value
-		if 'Exif.Nikon3.NoiseReduction' in self.metadata:
-			st_markup += ' Noise Reduction: %s\n' % self.metadata['Exif.Nikon3.NoiseReduction'].human_value
-		if 'Exif.Nikon3.HighISONoiseReduction' in self.metadata:
-			st_markup += ' High ISO Noise Reduction: %s\n' % self.metadata['Exif.Nikon3.HighISONoiseReduction'].human_value
-		if 'Exif.Nikon3.ShootingMode' in self.metadata:
-			st_markup += ' Shooting Mode: %s\n' % self.metadata['Exif.Nikon3.ShootingMode'].human_value
-			
+		('Exif.Nikon3.ActiveDLighting',       'DLighting'),
+		('Exif.NikonVr.VibrationReduction',   'Vibration Reduction'),
+		('Exif.Nikon3.NoiseReduction',        'Noise Reduction'),
+		('Exif.Nikon3.HighISONoiseReduction', 'High ISO Noise Reduction'),
+		('Exif.Nikon3.ShootingMode',          'Shooting Mode'),
 		# Canon
-		if 'Exif.CanonFi.NoiseReduction' in self.metadata:
-			st_markup += ' Noise Reduction: %s\n' % self.metadata['Exif.CanonFi.NoiseReduction'].human_value
-
+		('Exif.CanonFi.NoiseReduction', 'Noise Reduction'),
 		# Sony
-		if 'Exif.Sony1.AutoHDR' in self.metadata:
-			st_markup += ' Auto HDR: %s\n' % self.metadata['Exif.Sony1.AutoHDR'].human_value
-		if 'Exif.Sony1.LongExposureNoiseReduction' in self.metadata:
-			st_markup += ' LongExposureNoiseReduction: %s\n' % self.metadata['Exif.Sony1.LongExposureNoiseReduction'].human_value
+		('Exif.Sony1.AutoHDR', 'Auto HDR'),
+		('Exif.Sony1.LongExposureNoiseReduction', 'LongExposureNoiseReduction')
+		]
+		for tag_name in s_tag_name_extra:
+			if tag_name[0] in self.metadata:
+				st_markup += ' <i>%s:</i>\n   %s\n' % \
+				(tag_name[1], self.metadata[tag_name[0]].human_value)
 
 		st_markup += '<b>Lens:</b>\n'
-		if 'Exif.NikonLd3.FocalLength' in self.metadata:
-			st_markup += ' Focal Length: %s\n' % self.metadata['Exif.NikonLd3.FocalLength'].human_value
-		if 'Exif.NikonLd3.AFAperture' in self.metadata:
-			st_markup += ' AFAperture: %s\n' % self.metadata['Exif.NikonLd3.AFAperture'].human_value
-		if 'Exif.NikonLd3.FocusDistance' in self.metadata:
-			st_markup += ' Focus Distance: %s\n' % self.metadata['Exif.NikonLd3.FocusDistance'].human_value
+		s_tag_name_lens = [
+		('Exif.NikonLd3.FocalLength',   'Focal Length'),
+		('Exif.NikonLd3.AFAperture',    'AFAperture'),
+		('Exif.NikonLd3.FocusDistance', 'Focus Distance'),
+		]
+		for tag_name in s_tag_name_lens:
+			if tag_name[0] in self.metadata:
+				st_markup += ' <i>%s:</i> %s\n' % \
+				(tag_name[1], self.metadata[tag_name[0]].human_value)
 
-		st_markup += '<b>Hardware:</b>\n'
+		st_markup += '<b>Lens Model:</b>\n'
 		if 'Exif.Nikon3.Lens' in self.metadata:
-			st_markup += ' Lens: %s\n' % self.metadata['Exif.Nikon3.Lens'].human_value
+			st_markup += ' %s\n' % self.metadata['Exif.Nikon3.Lens'].human_value
 		if 'Exif.Canon.LensModel' in self.metadata:
-			st_markup += ' Lens: %s\n' % self.metadata['Exif.Canon.LensModel'].human_value
+			st_markup += ' %s\n' % self.metadata['Exif.Canon.LensModel'].human_value
 		if 'Exif.Photo.LensModel' in self.metadata:
-			st_markup += ' Lens: %s\n' % self.metadata['Exif.Photo.LensModel'].human_value
+			st_markup += ' %s\n' % self.metadata['Exif.Photo.LensModel'].human_value
 
 		if 'Exif.GPSInfo.GPSLatitudeRef' in self.metadata:
 			lr = self.metadata['Exif.GPSInfo.GPSLatitudeRef'].value
 			lv = self.metadata['Exif.GPSInfo.GPSLatitude'].value
 			ar = self.metadata['Exif.GPSInfo.GPSLongitudeRef'].value
 			av = self.metadata['Exif.GPSInfo.GPSLongitude'].value
-			st_markup += '<b>GPS:</b>\n %.0fd %.0f\' %.2f" %s,\n %.0fd %.0f\' %.2f" %s,\n' % \
+			st_markup += '<b>GPS:</b>\n %.0f° %.0f\' %.2f" %s,\n %.0f° %.0f\' %.2f" %s,\n' % \
 				(float(lv[0]), float(lv[1]), float(lv[2]), lr, \
 				 float(av[0]), float(av[1]), float(av[2]), ar)
 			st_markup += ' %s %s.\n' % (self.metadata['Exif.GPSInfo.GPSAltitude'].human_value,\
@@ -298,6 +315,8 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 
 		st_markup += '<b>Number of thumbnails:</b>\n <tt>%d</tt>\n' % len(previews)
 
-#		st_markup += '<b>UserComment:</b>\n <tt>%s</tt>\n' % len(previews)
+#		if 'NIKON' in image_make:
+#			if ('Exif.Photo.UserComment' in self.metadata):
+#				st_markup += '<b>UserComment:</b>\n <tt>%s</tt>\n' % self.metadata['Exif.Photo.UserComment'].human_value
 
 		self.label_exif.set_markup(st_markup)

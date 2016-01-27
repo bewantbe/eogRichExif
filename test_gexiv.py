@@ -1,12 +1,11 @@
-import pyexiv2
-metadata = pyexiv2.ImageMetadata('NIKON D90.JPG')
-metadata.read()
-#print metadata.exif_keys
-tag = metadata['Exif.Image.DateTime']
-print tag.value
+#!/usr/bin/python3
+# https://wiki.gnome.org/Projects/gexiv2
+# https://wiki.gnome.org/Projects/gexiv2/PythonSupport
+# https://github.com/GNOME/gexiv2
 
-print metadata['Exif.Photo.FNumber'].value.__float__()
-print metadata['Exif.Nikon3.Focus'].value
+from gi.repository import GExiv2
+
+exif = GExiv2.Metadata('test_pic/NIKON D90.JPG')
 
 ss=[
 'Exif.Image.Model',
@@ -24,8 +23,8 @@ ss=[
 ]
 
 for s in ss:
-	if s in metadata:
-		print '%s: %s' % (s, metadata[s].human_value)
+	if s in exif:
+		print '%s: %s' % (s, exif[s])
 	else:
 		print '%s: (not exist)' % s
 
