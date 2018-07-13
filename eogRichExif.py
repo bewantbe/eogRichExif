@@ -63,7 +63,7 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 		self.label_exif = builder.get_object('label_exif')
 
 		# add dialog to the sidebar
-		Eog.Sidebar.add_page(self.sidebar, "Custom Metadata Show", self.plugin_window)
+		Eog.Sidebar.add_page(self.sidebar, "RichExif", self.plugin_window)
 
 		self.cb_ids['selection-changed'] = {}
 		self.cb_ids['selection-changed'][self.thumbview] = \
@@ -137,18 +137,19 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 			st_markup += '<b>Camera:</b>\n %s%s\n' % (image_make, image_model)
 
 		# Time
+		NO_TIME = '0000:00:00 00:00:00'
 		s_time_tag = [
-		['0000:00:00 00:00:00', 'Exif.Image.DateTime',          'DateTime'],
-		['0000:00:00 00:00:00', 'Exif.Image.DateTimeOriginal',  'DateTimeOriginal'],
-		['0000:00:00 00:00:00', 'Exif.Photo.DateTimeOriginal',  'DateTimeOriginal'],
-		['0000:00:00 00:00:00', 'Exif.Image.DateTimeDigitized', 'DateTimeDigitized'],
-		['0000:00:00 00:00:00', 'Exif.Photo.DateTimeDigitized', 'DateTimeDigitized']]
+		[NO_TIME, 'Exif.Image.DateTime',          'DateTime'],
+		[NO_TIME, 'Exif.Image.DateTimeOriginal',  'DateTimeOriginal'],
+		[NO_TIME, 'Exif.Photo.DateTimeOriginal',  'DateTimeOriginal'],
+		[NO_TIME, 'Exif.Image.DateTimeDigitized', 'DateTimeDigitized'],
+		[NO_TIME, 'Exif.Photo.DateTimeDigitized', 'DateTimeDigitized']]
 		for idx, ttag in enumerate(s_time_tag):
 			if ttag[1] in self.metadata:
 				s_time_tag[idx][0] = self.metadata[ttag[1]].value
 
 		# remove nonsence data
-		s_time_tag = list(filter(lambda x: x[0]!='0000:00:00 00:00:00', s_time_tag))
+		s_time_tag = list(filter(lambda x: x[0]!=NO_TIME, s_time_tag))
 
 		if len(set([r[0] for r in s_time_tag])) > 1:  # time are different
 			for ttag in s_time_tag:
@@ -199,9 +200,9 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 		else:
 			st_focal_length = "?? mm"
 		if 'Exif.Photo.FocalLengthIn35mmFilm' in self.metadata:
-			st_focal_length_35mm = "%.1f mm (35mm film)" % self.metadata['Exif.Photo.FocalLengthIn35mmFilm'].value.__float__()
+			st_focal_length_35mm = "%.1f mm (35mm)" % self.metadata['Exif.Photo.FocalLengthIn35mmFilm'].value.__float__()
 		else:
-			st_focal_length_35mm = '?? mm (35mm film)'
+			st_focal_length_35mm = '?? mm (35mm)'
 		st_markup += '<tt> %s</tt>\n' % (st_focal_length)
 		st_markup += '<tt> %s</tt>\n' % (st_focal_length_35mm)
 
@@ -209,13 +210,16 @@ class eogRichExif(GObject.Object, Eog.WindowActivatable):
 			st_markup += '<b>Flash:</b>\n'
 			st_markup += ' %s\n' % self.metadata['Exif.Photo.Flash'].human_value
 
+		def sign(a):
+			return (a > 0) - (a < 0)
+    
 		# White Balance
 		st_markup += '<b>WhiteBalance:</b>\n'
 		if 'Exif.Nikon3.WhiteBalance' in self.metadata:
 			wb_extra = self.metadata['Exif.Nikon3.WhiteBalance'].human_value.strip()
 			if 'Exif.Nikon3.WhiteBalanceBias' in self.metadata:
 				v = self.metadata['Exif.Nikon3.WhiteBalanceBias'].value
-				wb_extra += ', Bias: R:%d, B:%d' % (v[0], v[1])
+				wb_extra += ', Bias: %s:%d, %s:%d' % (('A','_','B')[sign(v[0])+1], abs(v[0]), ('M','_','G')[sign(v[1])+1], abs(v[1]))
 			st_markup += ' %s\n' % wb_extra
 		elif 'Exif.CanonPr.WhiteBalanceRed' in self.metadata:
 			wb_extra = self.metadata['Exif.Photo.WhiteBalance'].human_value.strip()

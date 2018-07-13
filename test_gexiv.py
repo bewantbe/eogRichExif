@@ -24,7 +24,8 @@ ss=[
 
 for s in ss:
 	if s in exif:
-		print '%s: %s' % (s, exif[s])
+#		print '%s: %s' % (s, exif[s])
+		print('%s: %s' % (s, exif.get_tag_interpreted_string(s)))
 	else:
-		print '%s: (not exist)' % s
+		print('%s: (not exist)' % s)
 
